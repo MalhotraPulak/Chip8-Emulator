@@ -21,14 +21,14 @@ void print_screen(C8 &cpu) {
     }
 }
 
-std::string uint8_to_hex(const uint8_t v) {
+std::string int_to_hex(const uint8_t v) {
     std::stringstream ss;
     ss << std::hex << std::setfill('0');
     ss << std::hex << std::setw(2) << static_cast<int>(v);
     return ss.str();
 }
 
-std::string uint8_to_hex(const uint16_t v) {
+std::string int_to_hex(const uint16_t v) {
     std::stringstream ss;
     ss << std::hex << std::setfill('0');
     ss << std::hex << std::setw(4) << static_cast<int>(v);
@@ -49,31 +49,31 @@ void print_memory(C8 &cpu) {
         } else {
             attron(COLOR_PAIR(3));
         }
-        printw(uint8_to_hex(cpu.memory[i]).c_str());
+        printw(int_to_hex(cpu.memory[i]).c_str());
         printw(" ");
     }
 }
 
 void print_register(C8 &cpu) {
-    uint16_t i;
+    uint8_t i;
     for (i = 0; i < NUM_REGISTERS; i++) {
         move(i, 65);
-        auto f = uint8_to_hex(i) + ":" + uint8_to_hex(cpu.registers[i]);
+        auto f = int_to_hex(i) + ":" + int_to_hex(cpu.registers[i]);
         printw(f.c_str());
     }
-    auto I = "I :" + uint8_to_hex(cpu.I);
+    auto I = "I :" + int_to_hex(cpu.I);
     mvprintw(++i, 65, I.c_str());
 
-    auto DT = "DT:" + uint8_to_hex(cpu.DT);
+    auto DT = "DT:" + int_to_hex(cpu.DT);
     mvprintw(++i, 65, DT.c_str());
 
-    auto ST = "ST:" + uint8_to_hex(cpu.ST);
+    auto ST = "ST:" + int_to_hex(cpu.ST);
     mvprintw(++i, 65, ST.c_str());
 
-    auto stk = "STK:" + uint8_to_hex(cpu.stkp);
+    auto stk = "STK:" + int_to_hex(cpu.stkp);
     mvprintw(++i, 65, stk.c_str());
 
-    auto PC = "PC:" + uint8_to_hex(cpu.pc);
+    auto PC = "PC:" + int_to_hex(cpu.pc);
     mvprintw(++i, 65, PC.c_str());
 }
 
@@ -91,14 +91,17 @@ int main(int argc, char **argv) {
         std::cout << "Usage: c8 <rom path>\n";
         return 1;
     }
-    finish = false;
+
     char *path = argv[1];
     std::ifstream input(path, std::ios::binary);
-    // copies all data into buffer
     std::vector<unsigned char> buffer(std::istreambuf_iterator<char>(input), {});
+
     C8 c8;
     c8.init_rom(buffer);
+
+    finish = false;
     std::thread timer_thread(delayTimer, &c8);
+
     initscr();
     cbreak();
     noecho();
@@ -110,12 +113,13 @@ int main(int argc, char **argv) {
     init_pair(4, COLOR_WHITE, COLOR_WHITE);
     timeout(0);
     attron(COLOR_PAIR(3));
+
     while (true) {
-        uint16_t instr = c8.pc;
         print_screen(c8);
         print_memory(c8);
         print_register(c8);
         c8.execute_instruction();
+
         auto x = getch();
         if (x == 'q') {
             break;
@@ -124,27 +128,13 @@ int main(int argc, char **argv) {
         } else {
             c8.pressed_key = ERR;
         }
+
         refresh();
         using namespace std;
-        std::this_thread::sleep_for(2ms);
+        std::this_thread::sleep_for(1ms);
     }
     finish = true;
     timer_thread.join();
     endwin();
     return 0;
 }
-
-// 11100000
-// 01100000
-// 00100000
-// 11100000
-
-// 10100000
-// 01000000
-// 10100000
-// 10100000
-
-// 11001110
-// 10101010
-// 10101010
-// 10101110

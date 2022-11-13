@@ -1,0 +1,5 @@
+cmake-build-debug/
+.idea/
+chip8-roms/
+chip8-test-rom/
+

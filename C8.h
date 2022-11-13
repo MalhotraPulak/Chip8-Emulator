@@ -44,7 +44,7 @@ public:
     std::array<uint16_t, STACK_SIZE> stack{};
 
     uint16_t I = 0x0;
-    std::atomic <uint8_t> DT = 0x0; // delay todo implement decrement
+    std::atomic <uint8_t> DT = 0x0; // delay
     std::atomic <uint8_t> ST = 0x0; // sound
     uint16_t pc = 0x200;
     uint8_t stkp = 0x0;
