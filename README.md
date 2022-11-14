@@ -4,9 +4,10 @@ An interpreter for [Chip8](http://devernay.free.fr/hacks/chip8/C8TECH10.HTM#Fx29
 
 ## Features
 - Supports all standard CHIP8 instructions except beep sound
-- Handles user input mapped to keys 0 to 9 and a - f
+- Handles user input mapped to keys `0 - 9` and `a - f`
 - Displays the state of RAM
 - Displays the state of each register and PC as execution happens
+- Press `q` to quit the emulator
 
 
 ## Compile and make a debug build

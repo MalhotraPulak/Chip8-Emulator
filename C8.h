@@ -77,7 +77,7 @@ public:
     uint8_t stkp = 0x0;
     std::array<std::array<uint8_t, SCREEN_HEIGHT>, SCREEN_WIDTH> screen{};
     std::array<uint8_t, MEMORY_SIZE> memory{};
-    int8_t pressed_key{ERR};
+    int32_t pressed_key{ERR};
 
     explicit C8(const std::vector<unsigned char> &buffer);
 
