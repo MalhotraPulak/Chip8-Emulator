@@ -3,14 +3,18 @@
 //
 
 #include "C8.h"
-#include<random>
 #include <ncurses.h>
+#include <vector>
 
-int C8::execute_instruction() {
+uint16_t C8::fetch_instruction() {
     assert (pc % 2 == 0);
     const uint16_t instr = (((uint16_t) memory[pc]) << 8) + memory[pc + 1];
     pc += 2;
-    // cout << std::hex << instr << endl;
+    return instr;
+}
+
+int C8::execute_instruction() {
+    const auto instr = fetch_instruction();
     const auto first = first_nibble(instr);
     const auto fourth = fourth_nibble(instr);
     const auto x = second_nibble(instr);
@@ -18,10 +22,11 @@ int C8::execute_instruction() {
     const auto n = fourth;
     const auto kk = instr & 0x00FF;
     const auto nnn = instr & 0x0FFF;
+
     if (first == 0x0 and kk == 0xE0) {
         clear_screen();
     } else if (first == 0x0 and kk == 0xEE) {
-        assert(stkp >= 0x0 and stkp <= STACK_SIZE);
+        assert(stkp >= 0x1 and stkp <= STACK_SIZE);
         pc = stack[stkp];
         stkp -= 1;
     } else if (first == 0x0) {
@@ -33,11 +38,11 @@ int C8::execute_instruction() {
         pc = instr & nnn;
         assert(stkp >= 0x0 and stkp <= STACK_SIZE);
     } else if (first == 0x3) {
-        if (registers[x] == (instr & 0x00FF)) {
+        if (registers[x] == (instr & kk)) {
             pc += 2;
         }
     } else if (first == 0x4) {
-        if (registers[x] != (instr & 0x00FF)) {
+        if (registers[x] != (instr & kk)) {
             pc += 2;
         }
     } else if (first == 0x5 and fourth == 0x0) {
@@ -45,9 +50,9 @@ int C8::execute_instruction() {
             pc += 2;
         }
     } else if (first == 0x6) {
-        registers[x] = instr & 0x00FF;
+        registers[x] = instr & kk;
     } else if (first == 0x7) {
-        registers[x] += instr & 0x00FF;
+        registers[x] += instr & kk;
     } else if (first == 0x8 and fourth == 0x0) {
         registers[x] = registers[y];
     } else if (first == 0x8 and fourth == 0x1) {
@@ -75,10 +80,10 @@ int C8::execute_instruction() {
         }
         registers[x] = registers[x] - registers[y]; // todo check
     } else if (first == 0x8 and fourth == 0x6) {
-        registers[0xF] = registers[x] & 0x0001;
+        registers[0xF] = registers[x] & 0x0001; // lsb
         registers[x] = registers[x] >> 1;
     } else if (first == 0x8 and fourth == 0xE) {
-        registers[0xF] = registers[x] & 0x8000;
+        registers[0xF] = registers[x] & 0x8000; // msb
         registers[x] = registers[x] << 1;
     } else if (first == 0x8 and fourth == 0x7) {
         if (registers[y] > registers[x]) {
@@ -92,10 +97,10 @@ int C8::execute_instruction() {
             pc += 2;
         }
     } else if (first == 0xA) {
-        I = instr & 0x0FFF;
+        I = instr & nnn;
     } else if (first == 0xB) {
         uint16_t reg = registers[x];
-        pc = (uint16_t) (instr & 0x0FFF) + reg;
+        pc = (uint16_t) (instr & nnn) + reg;
     } else if (first == 0xC) {
         registers[x] = (uint8_t) (rand() % 256) & kk;
     } else if (first == 0xD) {
@@ -127,25 +132,23 @@ int C8::execute_instruction() {
             val /= 10;
         }
     } else if (first == 0xF and kk == 0x55) {
-        for (int i = 0; i <= x; i++) {
-            memory[I + i] = registers[i];
-        }
+        std::copy(registers.begin(), registers.begin() + x + 1, memory.begin() + I);
     } else if (first == 0xF and kk == 0x65) {
-        for (int i = 0; i <= x; i++) {
-            registers[i] = memory[I + i];
-        }
+        std::copy(memory.begin() + I, memory.begin() + I + x + 1, registers.begin());
     } else {
         assert(false);
     }
     return instr;
 }
 
-void C8::fill_some_data() {
-}
-
-C8::C8() {
+C8::C8(const std::vector<unsigned char> &buffer) {
+    pc = PROGRAM_START;
+    load_rom(buffer);
     load_sprites();
-    fill_some_data();
+    finish = false;
+    timerThread = std::move(std::thread([self = this]() {
+        delayTimer(self);
+    }));
 }
 
 uint16_t C8::fourth_nibble(uint16_t val) {
@@ -180,9 +183,9 @@ bool C8::is_key_pressed(uint8_t key) const {
     return pressed_key == key;
 }
 
-uint8_t C8::wait_for_key_press() const {
+uint8_t C8::wait_for_key_press() {
     timeout(-1);
-    auto x = getch();
+    int8_t x = getch();
     timeout(0);
     return (x >= '0' and x <= '9') ? x - '0' : x - 'a' + 10;
 }
@@ -208,12 +211,8 @@ bool C8::sprite_apply(uint8_t x, uint8_t y, uint8_t n) {
     return collision;
 }
 
-void C8::init_rom(const std::vector<unsigned char> &buffer) {
-    pc = PROGRAM_START;
-    for (int i = 0; i < buffer.size(); i++) {
-        memory[pc + i] = (int8_t) buffer[i];
-    }
-    pc = PROGRAM_START;
+void C8::load_rom(const std::vector<unsigned char> &buffer) {
+    std::copy(buffer.begin(), buffer.end(), memory.begin() + pc);
 }
 
 void C8::load_sprites() {
@@ -223,4 +222,17 @@ void C8::load_sprites() {
 void C8::decrement() {
     DT = std::max(DT - 1, 0);
     ST = std::max(ST - 1, 0);
+}
+
+void C8::delayTimer(C8 *cpu) {
+    while (!cpu->finish) {
+        cpu->decrement();
+        using namespace std;
+        std::this_thread::sleep_for(16ms);
+    }
+}
+
+C8::~C8() {
+    finish = true;
+    timerThread.join();
 }

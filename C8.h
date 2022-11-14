@@ -7,7 +7,10 @@
 
 #include <iostream>
 #include <array>
+#include <ncurses.h>
+#include <thread>
 
+// todo look how to handle constants
 const int MEMORY_SIZE = 4096;
 const int PROGRAM_START = 0x200;
 const int NUM_REGISTERS = 16;
@@ -37,25 +40,11 @@ const uint8_t sprites[FONTSET_SIZE] =
         };
 
 class C8 {
+    uint16_t fetch_instruction();
 
-public:
-    std::array<uint8_t, NUM_REGISTERS>
-            registers{};
-    std::array<uint16_t, STACK_SIZE> stack{};
+    void load_sprites();
 
-    uint16_t I = 0x0;
-    std::atomic <uint8_t> DT = 0x0; // delay
-    std::atomic <uint8_t> ST = 0x0; // sound
-    uint16_t pc = 0x200;
-    uint8_t stkp = 0x0;
-    std::array<std::array<uint8_t, SCREEN_HEIGHT>, SCREEN_WIDTH> screen{};
-    std::array<uint8_t, MEMORY_SIZE> memory{};
-    int pressed_key;
-    C8();
-
-    void fill_some_data();
-
-    int execute_instruction();
+    void clear_screen();
 
     static uint16_t first_nibble(uint16_t val);
 
@@ -65,18 +54,38 @@ public:
 
     static uint16_t fourth_nibble(uint16_t val);
 
-    void clear_screen();
-
     bool is_key_pressed(uint8_t key) const;
 
-    uint8_t wait_for_key_press() const ;
+    static uint8_t wait_for_key_press();
 
     bool sprite_apply(uint8_t x, uint8_t y, uint8_t n);
 
-    void init_rom(const std::vector<unsigned char> &buffer);
+    void load_rom(const std::vector<unsigned char> &buffer);
 
-    void load_sprites();
+    static void delayTimer(C8 *cpu);
+
+    std::thread timerThread;
+public:
+    std::atomic<bool> finish;
+    std::array<uint8_t, NUM_REGISTERS>
+            registers{};
+    std::array<uint16_t, STACK_SIZE> stack{};
+    uint16_t I = 0x0;
+    std::atomic<uint8_t> DT = 0x0; // delay
+    std::atomic<uint8_t> ST = 0x0; // sound
+    uint16_t pc = 0x200;
+    uint8_t stkp = 0x0;
+    std::array<std::array<uint8_t, SCREEN_HEIGHT>, SCREEN_WIDTH> screen{};
+    std::array<uint8_t, MEMORY_SIZE> memory{};
+    int8_t pressed_key{ERR};
+
+    explicit C8(const std::vector<unsigned char> &buffer);
+
+    int execute_instruction();
+
     void decrement();
+
+    ~C8();
 
 };
 

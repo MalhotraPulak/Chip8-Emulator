@@ -6,12 +6,10 @@
 #include <ncurses.h>
 #include <sstream>
 
-std::atomic<bool> finish = false;
-
 void print_screen(C8 &cpu) {
     for (int i = 0; i < SCREEN_WIDTH; i++) {
         for (int j = 0; j < SCREEN_HEIGHT; j++) {
-            if (cpu.screen[i][j] == 0){
+            if (cpu.screen[i][j] == 0) {
                 attron(COLOR_PAIR(3));
             } else {
                 attron(COLOR_PAIR(4));
@@ -77,13 +75,6 @@ void print_register(C8 &cpu) {
     mvprintw(++i, 65, PC.c_str());
 }
 
-void delayTimer(C8 *cpu) {
-    using namespace std;
-    while (!finish) {
-        cpu->decrement();
-        std::this_thread::sleep_for(16ms);
-    }
-}
 
 
 int main(int argc, char **argv) {
@@ -95,12 +86,7 @@ int main(int argc, char **argv) {
     char *path = argv[1];
     std::ifstream input(path, std::ios::binary);
     std::vector<unsigned char> buffer(std::istreambuf_iterator<char>(input), {});
-
-    C8 c8;
-    c8.init_rom(buffer);
-
-    finish = false;
-    std::thread timer_thread(delayTimer, &c8);
+    C8 c8(buffer);
 
     initscr();
     cbreak();
@@ -123,8 +109,8 @@ int main(int argc, char **argv) {
         auto x = getch();
         if (x == 'q') {
             break;
-        } else if(x == ERR) {
-            c8.pressed_key = (x >= '0' and x <= '9') ? x - '0' :x - 'a' + 10;
+        } else if (x != ERR) {
+            c8.pressed_key = (x >= '0' and x <= '9') ?  (x - '0') : x - 'a' + 10;
         } else {
             c8.pressed_key = ERR;
         }
@@ -133,8 +119,6 @@ int main(int argc, char **argv) {
         using namespace std;
         std::this_thread::sleep_for(1ms);
     }
-    finish = true;
-    timer_thread.join();
     endwin();
     return 0;
 }
